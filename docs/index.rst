@@ -1,5 +1,5 @@
 Welcome to Corpus Wrangler's documentation!
-======================================
+===========================================
 
 .. toctree::
    :maxdepth: 2
@@ -8,6 +8,7 @@ Welcome to Corpus Wrangler's documentation!
    readme
    installation
    usage
+   wikipedia
    modules
    contributing
    authors
