@@ -18,6 +18,8 @@ Corpus Wrangler
      :target: https://pyup.io/repos/github/bghill/corpus_wrangler/
      :alt: Updates
 
+*This is an active project (Fall 2020) but not yet ready for tire kicking. If this
+project sounds useful to you, reach out and let me know what you'd like to see.*
 
 A simple utility library for downloading and handling large corpora (like Wikipedia).
 
