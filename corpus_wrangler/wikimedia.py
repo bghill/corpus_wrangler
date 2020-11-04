@@ -34,7 +34,7 @@ from bs4 import BeautifulSoup
 
 
 class CorpusFiles:
-    """A set of _files from a wikimedia dump.
+    """A set of files from a wikimedia dump.
 
     The file set can be either local or a target set of files to be
     downloaded. The set is stored as a yielding iterator, to allow
@@ -247,9 +247,9 @@ class CorpusFiles:
 
 
 class CorpusTracker:  # pylint: disable=too-many-instance-attributes
-    """Tracks Wikimedia corpus _files locally and online.
+    """Tracks Wikimedia corpus files locally and online.
 
-    A class to track what Wikimedia _files exist locally, as well as what _files
+    A class to track what Wikimedia files exist locally, as well as what files
     are available online. While the defaults of this class are set to pull the
     articles from the English wikipedia, everything is parameterized to make it
     simple to pull whatever parts you chose from any wikimedia hosted wiki.
@@ -265,11 +265,11 @@ class CorpusTracker:  # pylint: disable=too-many-instance-attributes
                  date="latest", online=True, verbose=True):
         """Object initialization.
 
-        Initialization scans the given local directories for pre-existing wikimedia _files.
+        Initialization scans the given local directories for pre-existing wikimedia files.
         It then looks online to get a list of which wikis are available.
 
         Args:
-            local_dirs (list): Local directories containing local corpus _files (Default: cwd)
+            local_dirs (list): Local directories containing local corpus files (Default: cwd)
             wiki_name (string): which wiki to look at (Default: "enwiki")
             date (string): which date to inspect (Default: "latest"), format "YYYYMMDD"
             online (bool): Object instantiation should check for online status (Default: True)
@@ -348,7 +348,7 @@ class CorpusTracker:  # pylint: disable=too-many-instance-attributes
 
     def _scan_dir_for_file_sets(self, path):
         """Walk through a directory and identify all wiki related files."""
-        # get a list of just the _files
+        # get a list of just the files
         file_list = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 
         # get a list of known wikis
