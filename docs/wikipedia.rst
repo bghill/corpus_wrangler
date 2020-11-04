@@ -48,7 +48,3 @@ Details on the lib
    * has a different layout so require custom page parsing
    * includes occasional files from earlier dumps (older copies of the same data)
  * While these things are easy enough to overcome, there seems to be no gain in adding extra code to do so
-
-See:
-* https://en.wikipedia.org/wiki/Wikipedia:Size_of_Wikipedia
-* https://en.wikipedia.org/wiki/Wikipedia:Modelling_Wikipedia%27s_growth#Data_set_for_number_of_articles

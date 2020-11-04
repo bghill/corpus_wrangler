@@ -9,6 +9,7 @@ Welcome to Corpus Wrangler's documentation!
    installation
    usage
    wikipedia
+   performance
    modules
    contributing
    authors

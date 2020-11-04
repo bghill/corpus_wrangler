@@ -1,0 +1,100 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" dir="ltr">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Wikimedia Downloads</title>
+<link rel="stylesheet" type="text/css" href="/dumps.css" />
+</head>
+<body>
+<div class="lang-list-button-wrapper">
+            <h1>Wikimedia Downloads</h1>
+            <p>
+                Please note that we have rate limited downloaders and we are capping the
+                number of per-ip connections to 2. This will help to ensure that everyone
+                can access the files with reasonable download times.  Clients that try to
+                evade these limits may be blocked.
+            </p>
+            <p>
+                <strong>Please consider using a <a href="/mirrors.html">mirror</a> for
+                downloading these dumps.</strong>
+            </p>
+            <p>The following kinds of downloads are available:</p>
+            <dl>
+                <dt>Database backup dumps (current page)</dt>
+                <dd>
+                    A complete copy of all Wikimedia wikis, in the form of wikitext source
+                    and metadata embedded in XML. A number of
+                    raw database tables in SQL form are also available.
+                </dd>
+                <dd>
+                    These snapshots are provided at the very least monthly and usually
+                    twice a month. If you are a regular user of these dumps,
+                    please consider subscribing to
+                    <a href="https://lists.wikimedia.org/mailman/listinfo/xmldatadumps-l">
+                    xmldatadumps-l</a> for regular updates.
+                </dd>
+                <dt><a href="/other/static_html_dumps/">Static HTML dumps</a></dt>
+                <dd>A copy of all pages from all Wikipedia wikis, in HTML form.</dd>
+                <dt><a href="dvd.html">DVD distributions</a></dt>
+                <dd>Available for some Wikipedia editions.</dd>
+                <dt>Image tarballs</dt>
+                <dd>There are currently no image dumps available.</dd>
+            </dl>
+            <h2>Legal</h2>
+            <dl>
+                <dt>App Guidelines</dt>
+                <dd>
+                    <a href="https://foundation.wikimedia.org/wiki/Developer_app_guidelines">
+                    Guidelines for developers</a> on how to properly reuse
+                    Wikimedia data, trademarks, and content.
+                </dd>
+                <dt>Copyright licensing</dt>
+                <dd><a href="/legal.html">Copyright licensing information</a> for these dumps.</dd>
+                <dt>Privacy</dt>
+                <dd>
+                    The <a href="https://meta.wikimedia.org/wiki/Privacy_policy">
+                    privacy policy</a> for Wikimedia Foundation websites.
+                </dd>
+            </dl>
+            <h2>Sql/XML dumps issues</h2>
+            <p>
+              Files are provided in various formats, including gzipped sql, json or xml, bzipped xml,
+              and 7zipped xml. Older versions of the 7zip decoder on Windows are known to have
+              <a href="https://phabricator.wikimedia.org/T208647">problems</a> with some bz2-format
+              files for larger wikis; we recommend the use of bzip2 for Windows for these cases.
+              7zip 20.00 alpha (x64) on Win10 LTSC 2019 and later versions should work properly.
+              Please report problems with these dumps on Phabricator and add the
+              <a href="https://phabricator.wikimedia.org/project/profile/1519/">Dumps-generation</a> tag.
+            </p>
+            <div class="visualClear"></div>
+            <div class="status">
+                Dumps are in progress...
+            </div>
+            <div class="otherindexlink">
+                Also view sorted by <a href="backup-index-bydb.html">wiki name</a>
+            </div>
+            <ul>
+                <li>2020-11-02 17:13:25 <a href="wikidatawiki/20201101">wikidatawiki</a>: <span class='in-progress'>Dump in progress</span></li>
+<ul><li class='in-progress'><span class='updates'>2020-11-01 10:05:51</span> <span class='status'>in-progress</span> <span class='title'>First-pass for page XML data dumps</span><div class='progress'>b'2020-11-02 08:50:13: wikidatawiki (ID 32456) 1677 pages (226.1|5849.4/sec all|curr), 8000 revs (1078.4|3488.0/sec all|curr), ETA 2020-11-16 08:05:01 [max 1301563680]'</div>
+<ul><li class='detail'>These files contain no page text, only revision metadata.</li>
+<li class='file'>wikidatawiki-20201101-stub-meta-history1.xml.gz 3.6 GB (written) </li>
+<li class='file'>wikidatawiki-20201101-stub-meta-history2.xml.gz 3.6 GB (written) </li>
+<li class='file'>wikidatawiki-20201101-stub-meta-history3.xml.gz 3.5 GB (written) </li>
+<li class='file'>wikidatawiki-20201101-stub-meta-history4.xml.gz 3.5 GB (written) </li>
+<li class='file'>wikidatawiki-20201101-stub-meta-history5.xml.gz 3.4 GB (written) </li>
+<li class='file'>wikidatawiki-20201101-stub-meta-history6.xml.gz 3.5 GB (written) </li>
+<li class='file'>wikidatawiki-20201101-stub-articles27.xml.gz 646.5 MB (written) </li></ul></li></ul>
+<li>2020-11-02 17:13:29 <a href="commonswiki/20201101">commonswiki</a>: <span class='in-progress'>Dump in progress</span></li>
+<ul><li class='in-progress'><span class='updates'>2020-11-02 16:21:12</span> <span class='status'>in-progress</span> <span class='title'>Wiki template inclusion link records.</span><ul><li class='file'>commonswiki-20201101-templatelinks.sql.gz 4.7 GB (written) </li></ul></li></ul>
+<li>2020-11-02 17:10:01 <a href="enwiki/20201101">enwiki</a>: <span class='in-progress'>Dump in progress</span></li>
+<ul><li class='in-progress'><span class='updates'>2020-11-02 17:09:59</span> <span class='status'>in-progress</span> <span class='title'>Recombine first-pass for page XML data dumps</span><ul><li class='detail'>These files contain no page text, only revision metadata.</li>
+<li class='missing'>enwiki-20201101-stub-meta-history.xml.gz</li>
+<li class='missing'>enwiki-20201101-stub-meta-current.xml.gz</li>
+<li class='missing'>enwiki-20201101-stub-articles.xml.gz</li></ul></li></ul>
+<li>2020-11-02 08:09:55 <a href="cebwiki/20201101">cebwiki</a>: <span class='partial-dump'>Partial dump</span></li>
+<li>2020-11-02 04:53:32 ombudsmenwiki (private data): <span class='partial-dump'>Partial dump</span></li>
+<li>2020-11-02 06:54:10 <a href="ruwiki/20201101">ruwiki</a>: <span class='partial-dump'>Partial dump</span></li>
+            </ul>
+        </div>
+</body>
+</html>

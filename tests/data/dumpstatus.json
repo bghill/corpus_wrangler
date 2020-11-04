@@ -1,0 +1,35 @@
+{
+  "jobs": {
+    "articlesmultistreamdumprecombine": {
+      "files": {
+        "enwiki-20201001-pages-articles-multistream-index.txt.bz2": {
+          "md5": "94d4068954261ca46ed7052b1b7b8ac1",
+          "sha1": "15e98e677d5d1b5e7de913e73a2dafd8e97bba32",
+          "size": 226307773,
+          "url": "/enwiki/20201001/enwiki-20201001-pages-articles-multistream-index.txt.bz2"
+        },
+        "enwiki-20201001-pages-articles-multistream.xml.bz2": {
+          "md5": "b9dae590c9f82a5fcf8bc65a3dfea8d9",
+          "sha1": "cc9a1681d67209f8e5ca8850157842da1c671c53",
+          "size": 18799041841,
+          "url": "/enwiki/20201001/enwiki-20201001-pages-articles-multistream.xml.bz2"
+        }
+      },
+      "status": "done",
+      "updated": "2020-10-03 01:01:38"
+    },
+    "flaggedpageconfigtable": {
+      "files": {
+        "enwiki-20201001-flaggedpage_config.sql.gz": {
+          "md5": "2b078264f32583f2a607bede7fd0268d",
+          "sha1": "200a7f269b665d0f3c0640980082577d5b816ba6",
+          "size": 23853,
+          "url": "/enwiki/20201001/enwiki-20201001-flaggedpage_config.sql.gz"
+        }
+      },
+      "status": "done",
+      "updated": "2020-10-01 11:24:48"
+    }
+  },
+  "version": "0.8"
+}

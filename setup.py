@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """The setup script."""
-
-from setuptools import setup, find_packages
+from setuptools import find_packages
+from setuptools import setup
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -11,7 +10,7 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ['beautifulsoup4', 'requests']
+requirements = ['beautifulsoup4', 'requests', 'lz4', 'lxml', 'pandas', 'numpy']
 
 setup_requirements = ['pytest-runner', ]
 
@@ -31,7 +30,7 @@ setup(
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
     ],
-    description="A simple library for downloading and handling large ccorpora (like Wikipedia).",
+    description="A simple library for downloading and handling large corpora (like Wikipedia).",
     install_requires=requirements,
     license="MIT license",
     long_description=readme + '\n\n' + history,
