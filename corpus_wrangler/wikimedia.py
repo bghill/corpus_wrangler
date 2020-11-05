@@ -27,7 +27,6 @@ import os
 import re
 from importlib import resources
 
-import numpy as np
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
@@ -44,10 +43,9 @@ with resources.open_text("data", "known_wikis.txt") as fin:
         _known_wikis.append(w.rstrip())
 
 
-def _filter_nones(array):
-    """Remove None values that get returned by unique(), casts to a list."""
-    array = array[array != np.array(None)]
-    return list(array)
+def _unique_list(df_col):
+    """Return a list of unique values without NA."""
+    return list(df_col.unique().dropna())
 
 
 def _parse_dump_info(name, wiki_names):
@@ -140,13 +138,19 @@ class CorpusFiles:
     for files to be processed as soon as they are downloaded.
     """
 
+    _description_columns_types = {k: "boolean" for k in ["pages", "stubs", "logging", "abstracts", "sql", "checksum",
+                                                         "titles", "namespaces", "articles", "index", "rev_metadata",
+                                                         "current", "history", "set", "indexed"]}
+    _description_columns = list(_description_columns_types.keys())
+    _id_columns_types = {"name": "string", "path": "string", "size": "UInt64",
+                         "file_type": "string", "wiki": "string", "date": "string"}
+    _id_columns = list(_id_columns_types.keys())
+
     def __init__(self):
         """Initialize the storage for file records."""
-        self._dump_columns = ["pages", "stubs", "logging", "abstracts", "sql", "checksum",
-                              "titles", "namespaces", "articles", "index", "rev_metadata",
-                              "current", "history", "set", "indexed"]
-        self._columns = ["name", "path", "size", "file_type", "wiki", "date"] + self._dump_columns
-        self._files = pd.DataFrame(columns=self._columns)
+        self._files = pd.DataFrame(columns=CorpusFiles._id_columns + CorpusFiles._description_columns)
+        self._files = self._files.astype(CorpusFiles._id_columns_types)
+        self._files = self._files.astype(CorpusFiles._description_columns_types)
 
     def add_files(self, path, file_list, wiki_names):
         """Process a list of files and add each to the CorpusFile records.
@@ -173,6 +177,10 @@ class CorpusFiles:
             file_rows.append(row)
 
         self._files = self._files.append(pd.DataFrame.from_dict(file_rows, orient='columns'))
+        # remove NA values from boolean columns
+        self._files[CorpusFiles._description_columns] = self._files[CorpusFiles._description_columns].fillna(False)
+        # reset column types as append seems to most things in type 'object'
+        self._files = self._files.astype(CorpusFiles._id_columns_types).astype(CorpusFiles._description_columns_types)
 
     def get_wikis(self):
         """Return a list of all wikis represented in the CorpusFiles set.
@@ -180,7 +188,7 @@ class CorpusFiles:
         Returns:
             A string list of wiki names
         """
-        return _filter_nones(self._files.wiki.unique())
+        return _unique_list(self._files.wiki)
 
     def get_dumps(self, wiki):
         """Return a list of all dumps for a given wiki in the CorpusFiles set.
@@ -190,7 +198,7 @@ class CorpusFiles:
         Returns:
             A string list of dump dates
         """
-        return _filter_nones(self._files[self._files['wiki'] == wiki].date.unique())
+        return _unique_list(self._files[self._files['wiki'] == wiki].date)
 
     def get_file_count(self, wiki=None, date=None):
         """Return the number of files in this CorpusFiles' records.
@@ -244,7 +252,7 @@ class CorpusFiles:
         """
         return list(self._files[(self._files.wiki == wiki)
                                 & (self._files.date == date)
-                                & ~self._files[self._dump_columns].any(axis=1)].name)
+                                & ~self._files[self._description_columns].any(axis=1)].name)
 
     def get_checksum_files(self, wiki, date):
         """Return a list of all checksum files which belong to a wiki and dump.
