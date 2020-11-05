@@ -81,8 +81,8 @@ def test_local_dir_scan(fs):
     fs.create_file("/data2/enwiki-20201020-md5sums.txt")
 
     wct = ww.CorpusTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
-    assert len(wct.local_files.get_wikis()) == 2
-    assert len(wct.local_files.get_dumps("enwiki")) == 2
+    assert len(wct.get_local_wikis()) == 2
+    assert len(wct.get_local_dumps("enwiki")) == 2
 
 
 def test_wiki_file_identification(fs):
@@ -92,12 +92,12 @@ def test_wiki_file_identification(fs):
         for filename in filelist:
             fs.create_file("/data/" + filename.rstrip())
     wct = ww.CorpusTracker(local_dirs=["/data"], online=False, verbose=False)
-    assert wct.local_files.get_file_count() == 1836
+    assert wct.get_local_file_count() == 1836
     assert len(wct.offline_wikis) == 1
-    assert len(wct.local_files.get_unknown_files()) == 1
-    assert len(wct.local_files.get_unknown_wiki_files("enwiki")) == 1
-    assert len(wct.local_files.get_unknown_dump_files("enwiki", "20201001")) == 1
-    assert len(wct.local_files.get_checksum_files("enwiki", "20201001")) == 2
+    assert len(wct.get_unknown_files()) == 3
+    assert len(wct.get_unknown_files("enwiki")) == 2
+    assert len(wct.get_unknown_files("enwiki", "20201001")) == 1
+    assert len(wct.get_local_checksum_files("enwiki", "20201001")) == 2
 
 
 # ---------------------------------------
