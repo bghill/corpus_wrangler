@@ -25,7 +25,7 @@ def request_mock():
 def set_wikimedia_pages(mocker, wiki_list_file="./tests/data/wikimedia_wikilist.html",
                         dump_list_file="./tests/data/dump_list.html",
                         dump_status_file="./tests/data/dumpstatus.json"):
-    """Read in test data needed to successfully initialize CorpusTracker in online mode."""
+    """Read in test data needed to successfully initialize CorporaTracker in online mode."""
     with open(wiki_list_file, "rt") as w_l_f, \
          open(dump_list_file, "rt") as d_l_f, \
          open(dump_status_file, "rt") as d_s_f:
@@ -51,7 +51,7 @@ def test_local_dir_perm_ok(fs):
     fs.create_dir("/data1", perm_bits=0o777)
     fs.create_dir("/data2", perm_bits=0o777)
 
-    wct = ww.CorpusTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
+    wct = ww.CorporaTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
     assert not wct.online
 
 
@@ -61,7 +61,7 @@ def test_local_dir_perm_wrong(fs):
     fs.create_dir("/data2", perm_bits=0o444)  # read-only
 
     with pytest.raises(PermissionError):
-        ww.CorpusTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
+        ww.CorporaTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
 
 
 def test_local_dir_bad_path(fs):
@@ -70,7 +70,7 @@ def test_local_dir_bad_path(fs):
     fs.create_dir("/data2", perm_bits=0o777)
 
     with pytest.raises(FileNotFoundError):
-        ww.CorpusTracker(local_dirs=["/data1", "foo"], online=False, verbose=False)
+        ww.CorporaTracker(local_dirs=["/data1", "foo"], online=False, verbose=False)
 
 
 def test_local_dir_scan(fs):
@@ -80,7 +80,7 @@ def test_local_dir_scan(fs):
     fs.create_file("/data2/frwiki-20201020-md5sums.txt")
     fs.create_file("/data2/enwiki-20201020-md5sums.txt")
 
-    wct = ww.CorpusTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
+    wct = ww.CorporaTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
     assert len(wct.get_local_wikis()) == 2
     assert len(wct.get_local_dumps("enwiki")) == 2
 
@@ -91,7 +91,7 @@ def test_wiki_file_identification(fs):
     with open("./tests/data/local_filelist_enwiki.txt", "rt") as filelist:
         for filename in filelist:
             fs.create_file("/data/" + filename.rstrip())
-    wct = ww.CorpusTracker(local_dirs=["/data"], online=False, verbose=False)
+    wct = ww.CorporaTracker(local_dirs=["/data"], online=False, verbose=False)
     assert wct.get_local_file_count() == 1836
     assert len(wct.offline_wikis) == 1
     assert len(wct.get_unknown_files()) == 3
@@ -107,7 +107,7 @@ def test_is_online_offline(request_mock):
     """Instantiation correctly detects offline status."""
     request_mock.get("http://dumps.wikimedia.org", exc=requests.exceptions.ConnectTimeout)
 
-    wct = ww.CorpusTracker(verbose=False)
+    wct = ww.CorporaTracker(verbose=False)
     assert not wct.is_online()
 
 
@@ -115,7 +115,7 @@ def test_is_online_online(request_mock):
     """Instantiation correctly detects online status."""
     set_wikimedia_pages(request_mock)
 
-    wct = ww.CorpusTracker(verbose=False)
+    wct = ww.CorporaTracker(verbose=False)
     assert wct.is_online()
 
 
@@ -124,7 +124,7 @@ def test_is_online_problem(request_mock):
     request_mock.get("http://dumps.wikimedia.org", exc=requests.exceptions.HTTPError)
 
     with pytest.raises(requests.exceptions.HTTPError):
-        ww.CorpusTracker(url="http://dumps.wikimedia.org", verbose=False)
+        ww.CorporaTracker(url="http://dumps.wikimedia.org", verbose=False)
 
 
 # -----------------------------------------
@@ -134,7 +134,7 @@ def test_get_online_wikis(request_mock):
     """Parse names of available online wikis."""
     set_wikimedia_pages(request_mock)
 
-    wct = ww.CorpusTracker(verbose=False)
+    wct = ww.CorporaTracker(verbose=False)
     assert "enwiki" in wct.online_wikis
     assert len(wct.online_wikis) == 5
 
@@ -143,7 +143,7 @@ def test_get_online_wikis_mid_dump(request_mock):
     """Parsing the list of online wikis must handle the additional text during dump days."""
     set_wikimedia_pages(request_mock, wiki_list_file="./tests/data/wikimedia_wikilist_middump.html")
 
-    wct = ww.CorpusTracker(verbose=False)
+    wct = ww.CorporaTracker(verbose=False)
     assert "enwiki" in wct.online_wikis
     assert len(wct.online_wikis) == 5
 
@@ -153,6 +153,6 @@ def test_get_offline_wikis(fs):
     fs.create_file("/data1/frwiki-20201020-md5sums.txt")
     fs.create_file("/data2/enwiki-20201020-md5sums.txt")
 
-    wct = ww.CorpusTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
+    wct = ww.CorporaTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
     assert len(wct.offline_wikis) == 2
     assert "enwiki" in wct.offline_wikis

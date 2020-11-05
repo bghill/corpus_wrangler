@@ -7,7 +7,7 @@ A set of classes to track, download, and parse Wikimedia dumps.
 
     from corpus_wrangler import wikimedia as ww
 
-    wiki_ct = ww.CorpusTracker()
+    wiki_ct = ww.CorporaTracker()
 
     wiki_article_sets = wiki_ct.get()
 
@@ -201,7 +201,7 @@ class CorpusFiles:
         return list(self._files[self._files.checksum].name)
 
 
-class CorpusTracker:  # pylint: disable=too-many-instance-attributes
+class CorporaTracker:  # pylint: disable=too-many-instance-attributes
     """Tracks Wikimedia corpus files locally and online.
 
     A class to track what Wikimedia files exist locally, as well as what files
