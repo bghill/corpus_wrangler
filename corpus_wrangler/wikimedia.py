@@ -33,6 +33,105 @@ import requests
 from bs4 import BeautifulSoup
 
 
+# ----------------------------------------------------------
+# Module  static utilities and global resources
+# ----------------------------------------------------------
+
+# When offline, we need a list of known wiki names
+_known_wikis = []
+with resources.open_text("data", "known_wikis.txt") as fin:
+    for w in fin:
+        _known_wikis.append(w.rstrip())
+
+
+def _filter_nones(array):
+    """Remove None values that get returned by unique(), casts to a list."""
+    array = array[array != np.array(None)]
+    return list(array)
+
+
+def _parse_dump_info(name, wiki_names):
+    """Return the name of the wiki this file comes from as well as the dump date."""
+    name_parts = name.split('-', 2)
+    if name_parts[0] in wiki_names:
+        if len(name_parts) > 1 and len(name_parts[1]) == 8 and name_parts[1].isnumeric():
+            if len(name_parts) == 3:
+                return name_parts[0], name_parts[1], name_parts[2]
+            return name_parts[0], name_parts[1], None
+        return name_parts[0], None, None
+    return None, None, None
+
+
+def _parse_wiki_file_names(name, description):  # pylint: disable=too-many-branches,too-many-statements
+    """Parse the file name to infer a description of the file contents.
+
+    Granted, this will always be limited in the face of user naming conventions.
+
+    While this is large and clunky, it is largely a side-effect of the number of file
+    types Wikimedia creates. This has ended up being more robust and faster than
+    creating a grammar and using ANTLR to parse the names.
+
+    Args:
+        name (str): File name with the wiki name and date removed along with the file extension
+        description (dict): Dict with what has been recorded about this file so far
+    """
+    if name.startswith("pages"):
+        description["pages"] = True
+        if name.startswith("pages-meta"):
+            description["rev_metadata"] = True
+            if name.startswith("pages-meta-history"):
+                description["history"] = True
+                if re.match(r"^pages-meta-history(\d|\d\d)\.xml-p\d+p\d+$", name):
+                    description["set"] = True
+            elif name.startswith("pages-meta-current"):
+                description["current"] = True
+                if re.match(r"^pages-meta-current(\d|\d\d)\.xml-p\d+p\d+$", name):
+                    description["set"] = True
+        elif name.startswith("pages-articles"):
+            description["articles"] = True  # pages-articles.xml
+            if name.startswith("pages-articles-multistream"):
+                description["indexed"] = True  # pages-articles-multistream.xml
+                if re.match(r"^pages-articles-multistream(\d|\d\d)\.xml-p\d+p\d+$", name):
+                    description["set"] = True
+                elif name.startswith("pages-articles-multistream-index"):
+                    description["index"] = True  # pages-articles-multistream-index.txt
+                    if re.match(r"^pages-articles-multistream-index(\d|\d\d)\.txt-p\d+p\d+$", name):
+                        description["set"] = True
+            elif re.match(r"^pages-articles(\d|\d\d)\.xml-p\d+p\d+$", name):
+                description["set"] = True
+        elif name.startswith("pages-logging"):
+            description["logging"] = True  # pages-logging.xml
+            if re.match(r"^pages-logging(\d|\d\d)\.xml$", name):
+                description["set"] = True
+    elif name.startswith("stub"):
+        if name.startswith("stub-articles"):
+            description["articles"] = True  # articles.xml
+            if re.match(r"^stub-articles(\d|\d\d)\.xml$", name):
+                description["set"] = True
+        elif name.startswith("stub-meta"):
+            description["rev_metadata"] = True
+            if name.startswith("stub-meta-current"):
+                description["current"] = True  # stub-meta-current.xml
+                if re.match(r"^stub-meta-current(\d|\d\d)\.xml$", name):
+                    description["set"] = True
+            elif name.startswith("stub-meta-history"):
+                description["history"] = True  # stub-meta-history.xml
+                if re.match(r"^stub-meta-history(\d|\d\d)\.xml$", name):
+                    description["set"] = True
+    elif name.startswith("abstract"):
+        description["abstracts"] = True
+        if re.match(r"^abstract(\d|\d\d)\.xml$", name):
+            description["set"] = True
+    elif ".sql" in name:
+        description["sql"] = True
+    elif name in ["md5sums", "sha1sums"]:
+        description["checksum"] = True
+    elif name.startswith("all-titles"):
+        description["titles"] = True
+    elif name == "siteinfo-namespaces.json":
+        description["namespaces"] = True
+
+
 class CorpusFiles:
     """A set of files from a wikimedia dump.
 
@@ -66,99 +165,14 @@ class CorpusFiles:
             size = os.path.getsize(os.path.join(path, file))
             # get file extension
             [fname, ext] = os.path.splitext(file)
-            (wiki, date, name) = self._parse_dump_info(fname, wiki_names)
+            (wiki, date, name) = _parse_dump_info(fname, wiki_names)
             row = {"name": file, "path": path, "size": size, "file_type": ext,
                    "wiki": wiki, "date": date}
             if name:  # this file belongs to a wiki dump, get the details
-                self._parse_wiki_file_names(name, row)
+                _parse_wiki_file_names(name, row)
             file_rows.append(row)
 
         self._files = self._files.append(pd.DataFrame.from_dict(file_rows, orient='columns'))
-
-    def _parse_dump_info(self, name, wiki_names):  # noqa: no-self-use  pylint: disable=no-self-use
-        """Return the name of the wiki this file comes from as well as the dump date."""
-        name_parts = name.split('-', 2)
-        if name_parts[0] in wiki_names:
-            if len(name_parts) > 1 and len(name_parts[1]) == 8 and name_parts[1].isnumeric():
-                if len(name_parts) == 3:
-                    return name_parts[0], name_parts[1], name_parts[2]
-                return name_parts[0], name_parts[1], None
-            return name_parts[0], None, None
-        return None, None, None
-
-    def _parse_wiki_file_names(self, name, description):  # noqa: no-self-use  pylint: disable=no-self-use,too-many-branches,too-many-statements
-        """Parse the file name to infer a description of the file contents.
-
-        Granted, this will always be limited in the face of user naming conventions.
-
-        While this is large and clunky, it is largely a side-effect of the number of file
-        types Wikimedia creates. This has ended up being more robust and faster than
-        creating a grammar and using ANTLR to parse the names.
-
-        Args:
-            name (str): File name with the wiki name and date removed along with the file extension
-            description (dict): Dict with what has been recorded about this file so far
-        """
-        if name.startswith("pages"):
-            description["pages"] = True
-            if name.startswith("pages-meta"):
-                description["rev_metadata"] = True
-                if name.startswith("pages-meta-history"):
-                    description["history"] = True
-                    if re.match(r"^pages-meta-history(\d|\d\d)\.xml-p\d+p\d+$", name):
-                        description["set"] = True
-                elif name.startswith("pages-meta-current"):
-                    description["current"] = True
-                    if re.match(r"^pages-meta-current(\d|\d\d)\.xml-p\d+p\d+$", name):
-                        description["set"] = True
-            elif name.startswith("pages-articles"):
-                description["articles"] = True  # pages-articles.xml
-                if name.startswith("pages-articles-multistream"):
-                    description["indexed"] = True  # pages-articles-multistream.xml
-                    if re.match(r"^pages-articles-multistream(\d|\d\d)\.xml-p\d+p\d+$", name):
-                        description["set"] = True
-                    elif name.startswith("pages-articles-multistream-index"):
-                        description["index"] = True  # pages-articles-multistream-index.txt
-                        if re.match(r"^pages-articles-multistream-index(\d|\d\d)\.txt-p\d+p\d+$", name):  # noqa: E501 pylint: disable=line-too-long
-                            description["set"] = True
-                elif re.match(r"^pages-articles(\d|\d\d)\.xml-p\d+p\d+$", name):
-                    description["set"] = True
-            elif name.startswith("pages-logging"):
-                description["logging"] = True  # pages-logging.xml
-                if re.match(r"^pages-logging(\d|\d\d)\.xml$", name):
-                    description["set"] = True
-        elif name.startswith("stub"):
-            if name.startswith("stub-articles"):
-                description["articles"] = True  # articles.xml
-                if re.match(r"^stub-articles(\d|\d\d)\.xml$", name):
-                    description["set"] = True
-            elif name.startswith("stub-meta"):
-                description["rev_metadata"] = True
-                if name.startswith("stub-meta-current"):
-                    description["current"] = True  # stub-meta-current.xml
-                    if re.match(r"^stub-meta-current(\d|\d\d)\.xml$", name):
-                        description["set"] = True
-                elif name.startswith("stub-meta-history"):
-                    description["history"] = True  # stub-meta-history.xml
-                    if re.match(r"^stub-meta-history(\d|\d\d)\.xml$", name):
-                        description["set"] = True
-        elif name.startswith("abstract"):
-            description["abstracts"] = True
-            if re.match(r"^abstract(\d|\d\d)\.xml$", name):
-                description["set"] = True
-        elif ".sql" in name:
-            description["sql"] = True
-        elif name in ["md5sums", "sha1sums"]:
-            description["checksum"] = True
-        elif name.startswith("all-titles"):
-            description["titles"] = True
-        elif name == "siteinfo-namespaces.json":
-            description["namespaces"] = True
-
-    def _filter_nones(self, array):  # pylint: disable=no-self-use
-        """Remove None values that get returned by unique(), casts to a list."""
-        array = array[array != np.array(None)]
-        return list(array)
 
     def get_wikis(self):
         """Return a list of all wikis represented in the CorpusFiles set.
@@ -166,7 +180,7 @@ class CorpusFiles:
         Returns:
             A string list of wiki names
         """
-        return self._filter_nones(self._files.wiki.unique())
+        return _filter_nones(self._files.wiki.unique())
 
     def get_dumps(self, wiki):
         """Return a list of all dumps for a given wiki in the CorpusFiles set.
@@ -176,7 +190,7 @@ class CorpusFiles:
         Returns:
             A string list of dump dates
         """
-        return self._filter_nones(self._files[self._files['wiki'] == wiki].date.unique())
+        return _filter_nones(self._files[self._files['wiki'] == wiki].date.unique())
 
     def get_file_count(self, wiki=None, date=None):
         """Return the number of files in this CorpusFiles' records.
@@ -254,12 +268,6 @@ class CorpusTracker:  # pylint: disable=too-many-instance-attributes
     articles from the English wikipedia, everything is parameterized to make it
     simple to pull whatever parts you chose from any wikimedia hosted wiki.
     """
-
-    # Defer to online lists, but this is for offline file name parsing
-    known_wikis = []
-    with resources.open_text("data", "known_wikis.txt") as fin:
-        for w in fin:
-            known_wikis.append(w.rstrip())
 
     def __init__(self, local_dirs=None, url="http://dumps.wikimedia.org", wiki_name="enwiki",  # noqa: E501 pylint: disable=too-many-arguments,line-too-long
                  date="latest", online=True, verbose=True):
@@ -352,7 +360,7 @@ class CorpusTracker:  # pylint: disable=too-many-instance-attributes
         file_list = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 
         # get a list of known wikis
-        wiki_names = CorpusTracker.known_wikis
+        wiki_names = _known_wikis
         if self.online and self.online_wikis:
             wiki_names = self.online_wikis
 
