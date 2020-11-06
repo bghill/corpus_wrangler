@@ -222,6 +222,16 @@ class UnknownFiles(FileSet):
             return self._files[(self._files.wiki == wiki)][["path", "name"]].agg('/'.join, axis=1).to_list()
         return self._files[["path", "name"]].agg('/'.join, axis=1).to_list()
 
+    def get_file_count(self, wiki=None, date=None):  # pylint: disable=arguments-differ
+        """Return a count of files detected."""
+        if self._files.empty:
+            return 0
+        if wiki and date:
+            return self._files[(self._files.wiki == wiki) & (self._files.date == date)].shape[0]
+        if wiki:
+            return self._files[(self._files.wiki == wiki)].shape[0]
+        return self._files.shape[0]
+
     def summary(self, verbose=True):
         """Print summary statistics for this set of files."""
         paths, count, size = self._summary_stats()
@@ -413,12 +423,13 @@ class CorporaTracker:
                 wikis.extend(a_href[0].contents)
         return wikis
 
-    def get_local_file_count(self):
+    def get_local_file_count(self, wiki=None, date=None):
         """Return the total count of files found in the provided local directories.
 
         This includes both wiki files and unknown files.
         """
-        return self._local_corpora.get_file_count() + self._unknown_files.get_file_count()
+        return self._local_corpora.get_file_count(wiki, date) \
+            + self._unknown_files.get_file_count(wiki, date)
 
     def print_summary(self, verbose=True):
         """List what the tracker is aware of.
