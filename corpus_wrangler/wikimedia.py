@@ -361,11 +361,11 @@ class CorporaTracker:
 
     def list_local_wikis(self):
         """Return a list of wikis that have at least one file from a dump stored locally."""
-        return self._local_corpora.get_wikis()
+        return self._local_corpora.list_wikis()
 
     def list_local_dumps(self, wiki=None):
         """Return a list of dump dates that have at least one file from that dump stored locally."""
-        return self._local_corpora.get_dumps(wiki)
+        return self._local_corpora.list_dumps(wiki)
 
     def list_unknown_files(self, wiki=None, date=None):
         """Return a list of files that don't fit the wikimedia naming convention.
@@ -385,7 +385,7 @@ class CorporaTracker:
 
     def list_local_dirs(self):
         """Return a  list of the directories scanned for files."""
-        return self._local_corpora.get_dirs()
+        return self._local_corpora.list_dirs()
 
     def list_local_checksum_files(self, wiki=None, date=None):
         """Return a list of known checksum files.
@@ -398,7 +398,7 @@ class CorporaTracker:
             wiki (str): The name of a wiki with files present in this CorpusFiles
             date (str): The dump date of a wiki with files present in this CorpusFiles
         """
-        return self._local_corpora.get_checksum_files(wiki, date)
+        return self._local_corpora.list_checksum_files(wiki, date)
 
     def is_online(self):
         """Check if wikimedia can be reached.
@@ -512,11 +512,11 @@ class Corpora:
             else:
                 self._corpora[wiki][date].add_files(files.to_dict('records'), self._unknown_files)
 
-    def get_wikis(self):
+    def list_wikis(self):
         """Return a list of wikis that have at least one file from a dump stored locally."""
         return list(self._corpora)
 
-    def get_dumps(self, wiki):
+    def list_dumps(self, wiki):
         """Return a list of dump dates that have at least one file from that dump stored locally."""
         if wiki:
             return list(self._corpora[wiki])
@@ -526,7 +526,7 @@ class Corpora:
             dumps.append(list(self._corpora[wiki_name]))
         return dumps
 
-    def get_dirs(self):
+    def list_dirs(self):
         """Return a list of the directories scanned for files."""
         return self._local_dirs
 
@@ -558,7 +558,7 @@ class Corpora:
                     status += self._corpora[wiki_name][date_name].summary(verbose)
         return status
 
-    def get_checksum_files(self, wiki=None, date=None):
+    def list_checksum_files(self, wiki=None, date=None):
         """Return a list of checksum files."""
         files = []
         if wiki and date:
