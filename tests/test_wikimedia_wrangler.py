@@ -83,6 +83,7 @@ def test_local_dir_scan(fs):
     wct = ww.CorporaTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
     assert len(wct.get_local_wikis()) == 2
     assert len(wct.get_local_dumps("enwiki")) == 2
+    assert len(wct.get_local_dirs()) == 2
 
 
 def test_wiki_file_identification(fs):
