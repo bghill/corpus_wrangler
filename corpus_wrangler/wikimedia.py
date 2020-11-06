@@ -82,8 +82,8 @@ def _parse_dump_name(name):
     return None, None, None
 
 
-def _parse_wiki_file_names(name, description):  # pylint: disable=too-many-branches,too-many-statements
-    """Parse the file name to infer a description of the file contents.
+def _parse_wiki_file_names(name, features):  # pylint: disable=too-many-branches,too-many-statements
+    """Parse the file name for a description of the file contents.
 
     Granted, this will always be limited in the face of user naming conventions.
 
@@ -93,63 +93,63 @@ def _parse_wiki_file_names(name, description):  # pylint: disable=too-many-branc
 
     Args:
         name (str): File name with the wiki name and date removed along with the file extension
-        description (dict): Dict with what has been recorded about this file so far
+        features (dict): Dict with what has been recorded about this file so far
     """
     if name.startswith("pages"):
-        description["pages"] = True
+        features["pages"] = True
         if name.startswith("pages-meta"):
-            description["rev_metadata"] = True
+            features["rev_metadata"] = True
             if name.startswith("pages-meta-history"):
-                description["history"] = True
+                features["history"] = True
                 if re.match(r"^pages-meta-history(\d|\d\d)\.xml-p\d+p\d+$", name):
-                    description["set"] = True
+                    features["set"] = True
             elif name.startswith("pages-meta-current"):
-                description["current"] = True
+                features["current"] = True
                 if re.match(r"^pages-meta-current(\d|\d\d)\.xml-p\d+p\d+$", name):
-                    description["set"] = True
+                    features["set"] = True
         elif name.startswith("pages-articles"):
-            description["articles"] = True  # pages-articles.xml
+            features["articles"] = True  # pages-articles.xml
             if name.startswith("pages-articles-multistream"):
-                description["indexed"] = True  # pages-articles-multistream.xml
+                features["indexed"] = True  # pages-articles-multistream.xml
                 if re.match(r"^pages-articles-multistream(\d|\d\d)\.xml-p\d+p\d+$", name):
-                    description["set"] = True
+                    features["set"] = True
                 elif name.startswith("pages-articles-multistream-index"):
-                    description["index"] = True  # pages-articles-multistream-index.txt
+                    features["index"] = True  # pages-articles-multistream-index.txt
                     if re.match(r"^pages-articles-multistream-index(\d|\d\d)\.txt-p\d+p\d+$", name):
-                        description["set"] = True
+                        features["set"] = True
             elif re.match(r"^pages-articles(\d|\d\d)\.xml-p\d+p\d+$", name):
-                description["set"] = True
+                features["set"] = True
         elif name.startswith("pages-logging"):
-            description["logging"] = True  # pages-logging.xml
+            features["logging"] = True  # pages-logging.xml
             if re.match(r"^pages-logging(\d|\d\d)\.xml$", name):
-                description["set"] = True
+                features["set"] = True
     elif name.startswith("stub"):
         if name.startswith("stub-articles"):
-            description["articles"] = True  # articles.xml
+            features["articles"] = True  # articles.xml
             if re.match(r"^stub-articles(\d|\d\d)\.xml$", name):
-                description["set"] = True
+                features["set"] = True
         elif name.startswith("stub-meta"):
-            description["rev_metadata"] = True
+            features["rev_metadata"] = True
             if name.startswith("stub-meta-current"):
-                description["current"] = True  # stub-meta-current.xml
+                features["current"] = True  # stub-meta-current.xml
                 if re.match(r"^stub-meta-current(\d|\d\d)\.xml$", name):
-                    description["set"] = True
+                    features["set"] = True
             elif name.startswith("stub-meta-history"):
-                description["history"] = True  # stub-meta-history.xml
+                features["history"] = True  # stub-meta-history.xml
                 if re.match(r"^stub-meta-history(\d|\d\d)\.xml$", name):
-                    description["set"] = True
+                    features["set"] = True
     elif name.startswith("abstract"):
-        description["abstracts"] = True
+        features["abstracts"] = True
         if re.match(r"^abstract(\d|\d\d)\.xml$", name):
-            description["set"] = True
+            features["set"] = True
     elif ".sql" in name:
-        description["sql"] = True
+        features["sql"] = True
     elif name in ["md5sums", "sha1sums"]:
-        description["checksum"] = True
+        features["checksum"] = True
     elif name.startswith("all-titles"):
-        description["titles"] = True
+        features["titles"] = True
     elif name == "siteinfo-namespaces.json":
-        description["namespaces"] = True
+        features["namespaces"] = True
 
 
 _file_info_keys = ["path", "name", "file_type", "size", "wiki", "date", "description"]
