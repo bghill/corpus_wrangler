@@ -30,6 +30,7 @@ from importlib import resources
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+from hurry.filesize import size as pretty_size
 
 
 # ----------------------------------------------------------
@@ -48,10 +49,21 @@ def _unique_list(df_col):
     return list(df_col.unique().dropna())
 
 
-def _parse_dump_info(name, wiki_names):
+def _check_dir_permissions(dirs):
+    """Confirm R/Q permission of each directory."""
+    for path in dirs:
+        if not os.path.exists(path):
+            raise FileNotFoundError
+        if not os.path.isdir(path):
+            raise NotADirectoryError
+        if not os.access(path, os.R_OK | os.W_OK):
+            raise PermissionError
+
+
+def _parse_dump_info(name):
     """Return the name of the wiki this file comes from as well as the dump date."""
     name_parts = name.split('-', 2)
-    if name_parts[0] in wiki_names:
+    if name_parts[0] in _known_wikis:
         if len(name_parts) > 1 and len(name_parts[1]) == 8 and name_parts[1].isnumeric():
             if len(name_parts) == 3:
                 return name_parts[0], name_parts[1], name_parts[2]
@@ -130,7 +142,96 @@ def _parse_wiki_file_names(name, description):  # pylint: disable=too-many-branc
         description["namespaces"] = True
 
 
-class CorpusFiles:
+_file_info_keys = ["path", "name", "file_type", "size", "wiki", "date", "description"]
+
+
+def _get_file_info(pathname):
+    size = os.path.getsize(pathname)
+    [path, file_name] = os.path.split(pathname)
+    [name, ext] = os.path.splitext(file_name)
+    wiki, date, description = _parse_dump_info(name)
+    return path, name, ext, size, wiki, date, description
+
+
+_SHORT_SUMMARY_TEMPLATE = """\
+Corpus name:  {name}
+Dirs:  {paths}
+Totals:  {file_count} files, {total_size}"""
+
+
+class FileSet:  # pylint: disable=too-few-public-methods
+    """A record of a set of files.
+
+    This is a base class for specific records for a collections of files.
+    """
+
+    _id_columns_types = {"path": "string", "name": "string", "file_type": "string", "size": "UInt64"}
+    _id_columns = list(_id_columns_types)
+
+    def __init__(self):
+        """Initialize object."""
+        self._files = None
+
+    def get_file_count(self):
+        """Return the number of files tracked by this set."""
+        return self._files.shape[0]
+
+    def _add_rows(self, file_rows):
+        """Append a list of dicts each describing a file to the existing record."""
+        if self._files is None:
+            self._files = pd.DataFrame.from_dict(file_rows, orient='columns')
+        else:
+            self._files = self._files.append(pd.DataFrame.from_dict(file_rows, orient='columns'))
+
+    def _summary_stats(self):
+        """Collect summary statistics for this set of files."""
+        paths = list(self._files.path.unique().dropna())
+        count = self.get_file_count()
+        size = pretty_size(self._files.size.sum())
+        return paths, count, size
+
+
+class UnknownFiles(FileSet):
+    """A record of all files who don't conform to a known wikimedia naming convention."""
+
+    _id_columns_types = {**FileSet._id_columns_types, "wiki": "string", "date": "string"}
+    _id_columns = list(_id_columns_types)
+
+    def add_files(self, file_list):
+        """Append a list of dicts each describing an unknown file to the existing record.
+
+        Args:
+            file_list (list): A list of dicts, each dict contains path, name, file_type, size,
+                            wiki name, dump date. Either of the last two can be empty.
+        """
+        for file_dict in file_list:
+            del file_dict["description"]
+        self._add_rows(file_list)
+
+    def get_files(self, wiki=None, date=None):
+        """Return a list of files.
+
+        Can return either a list of all unknown files, or if a wiki name is given, only those
+        files that start with that wiki name. If both wiki name and dump date are given, the
+        list is only unknown files that start with both the wikiname and the dump data.
+        """
+        if wiki and date:
+            return self._files[(self._files.wiki == wiki)
+                               & (self._files.date == date)][["path", "name"]].agg('/'.join, axis=1).to_list()
+        if wiki:
+            return self._files[(self._files.wiki == wiki)][["path", "name"]].agg('/'.join, axis=1).to_list()
+        return self._files[["path", "name"]].agg('/'.join, axis=1).to_list()
+
+    def summary(self, verbose=True):
+        """Print summary statistics for this set of files."""
+        paths, count, size = self._summary_stats()
+        print(_SHORT_SUMMARY_TEMPLATE.format(name="Unknown files", paths=paths,
+                                             file_count=count, total_size=size))
+        if verbose:
+            pass
+
+
+class CorpusFiles(FileSet):
     """A set of files from a wikimedia dump.
 
     The file set can be either local or a target set of files to be
@@ -138,70 +239,65 @@ class CorpusFiles:
     for files to be processed as soon as they are downloaded.
     """
 
+    _id_columns_types = FileSet._id_columns_types.copy()
+    _id_columns = list(_id_columns_types)
+
     _description_columns_types = {k: "boolean" for k in ["pages", "stubs", "logging", "abstracts", "sql", "checksum",
                                                          "titles", "namespaces", "articles", "index", "rev_metadata",
                                                          "current", "history", "set", "indexed"]}
-    _description_columns = list(_description_columns_types.keys())
+    _description_columns = list(_description_columns_types)
     _descriptions_init = {k: False for k in _description_columns}
-    _id_columns_types = {"name": "string", "path": "string", "size": "UInt64", "file_type": "string"}
-    _id_columns = list(_id_columns_types.keys())
 
-    def __init__(self, name, file_list, unknown_list):
+    def __init__(self, name, file_list, unknowns):
         """Initialize the storage for file records."""
-        self._files = None
+        super().__init__()
         self.name = name
-        self.add_files(file_list, unknown_list)
+        self.add_files(file_list, unknowns)
 
-    def add_files(self, file_list, unknown_list):
-        """Process a list of file path names and add each to the CorpusFile records.
+    def add_files(self, file_list, unknowns):
+        """Append a list of dicts each describing an unknown file to the existing record.
 
         Record the file name, path, size, and file type. If the file follows the naming
         convention of Wikimedia, parse the file name to record the nature of the file
-        contents. Files that don't follow the naming convention are added to the unknown_list.
+        contents. Files that don't follow the naming convention are added to unknowns.
 
         Args:
-            file_list (list): A list of file names (including paths) to be processed
-            unknown_list (list): A list which will be appended with the names of file that
-            don't match the expected naming convention.
+            file_list (list): A list of dicts, each dict contains path, name, file_type, size,
+                            wiki name, dump date. Either of the last two can be empty.
+            unknowns (UnknownFiles): Unknown file tracker for files that don't match the
+                            expected naming convention.
         """
         file_rows = []
-        for file in file_list:
-            size = os.path.getsize(file)
-            # get file path, name, extension
-            [path, file_name] = os.path.split(file)
-            [name, ext] = os.path.splitext(file_name)
-            try:
-                [_, _, file_descript] = name.split('-', 2)
-            except ValueError:
-                file_descript = ''
-            row = {"name": file_name, "path": path, "size": size, "file_type": ext}
-            row.update(CorpusFiles._descriptions_init.copy())
-            _parse_wiki_file_names(file_descript, row)
-            # Detect files who didn't match anything in the name parser
-            known_name_fmt = False
-            for k in CorpusFiles._description_columns:
-                known_name_fmt |= row[k]
-            if known_name_fmt:
-                file_rows.append(row)
-            else:
-                unknown_list.append(file)
-
-        if self._files is None:
-            self._files = pd.DataFrame.from_dict(file_rows, orient='columns')
-        else:
-            self._files.append(pd.DataFrame.from_dict(file_rows, orient='columns'))
+        unknown_list = []
+        for file_dict in file_list:
+            description = file_dict["description"]
+            features = CorpusFiles._descriptions_init.copy()
+            _parse_wiki_file_names(description, features)
+            if any(features.values()):
+                del file_dict["wiki"]
+                del file_dict["date"]
+                del file_dict["description"]
+                file_rows.append({**file_dict, **features})
+            else:  # these files didn't match anything in the parser - unknowns
+                unknown_list.append(file_dict)
+        self._add_rows(file_rows)
         self._files = self._files.astype(CorpusFiles._id_columns_types).astype(CorpusFiles._description_columns_types)
-
-    def get_file_count(self):
-        """Return the number of files tracked in this corpus."""
-        return self._files.shape[0]
+        unknowns.add_files(unknown_list)
 
     def get_checksum_files(self):
         """Return a list of all checksum files in this corpus."""
         return list(self._files[self._files.checksum].name)
 
+    def summary(self, verbose=False):
+        """Print summary statistics for this set of files."""
+        paths, count, size = self._summary_stats()
+        print(_SHORT_SUMMARY_TEMPLATE.format(name=self.name, paths=paths,
+                                             file_count=count, total_size=size))
+        if verbose:
+            pass
 
-class CorporaTracker:  # pylint: disable=too-many-instance-attributes
+
+class CorporaTracker:
     """Tracks Wikimedia corpus files locally and online.
 
     A class to track what Wikimedia files exist locally, as well as what files
@@ -210,8 +306,8 @@ class CorporaTracker:  # pylint: disable=too-many-instance-attributes
     simple to pull whatever parts you chose from any wikimedia hosted wiki.
     """
 
-    def __init__(self, local_dirs=None, url="http://dumps.wikimedia.org", wiki_name="enwiki",  # noqa: E501 pylint: disable=too-many-arguments,line-too-long
-                 date="latest", online=True, verbose=True):
+    def __init__(self, local_dirs=None, url="http://dumps.wikimedia.org",  # pylint: disable=too-many-arguments
+                 wiki_name="enwiki", online=True, verbose=True):
         """Object initialization.
 
         Initialization scans the given local directories for pre-existing wikimedia files.
@@ -220,23 +316,17 @@ class CorporaTracker:  # pylint: disable=too-many-instance-attributes
         Args:
             local_dirs (list): Local directories containing local corpus files (Default: cwd)
             wiki_name (string): which wiki to look at (Default: "enwiki")
-            date (string): which date to inspect (Default: "latest"), format "YYYYMMDD"
             online (bool): Object instantiation should check for online status (Default: True)
             verbose (bool): Print summary stats after instantiation (Default: True)
         """
-        self.corpora = {}
-        self.unknown_files = {"orphans": []}
-        self.offline_wikis = None
+        self._unknown_files = UnknownFiles()
         self.online = False
         self.online_wikis = None
         # check and scan local dirs
-        self.local_dirs = ['.']
-        if local_dirs:
-            self.local_dirs = local_dirs
-        self._check_dir_permissions()
-        for path in self.local_dirs:
-            self._scan_dir_for_file_sets(path)
-        self.offline_wikis = list(self.corpora.keys())
+        if not local_dirs:
+            local_dirs = ['.']
+        _check_dir_permissions(local_dirs)
+        self._local_corpora = Corpora(local_dirs, self._unknown_files)
         # set online status
         self.url = url
         if online:
@@ -245,26 +335,17 @@ class CorporaTracker:  # pylint: disable=too-many-instance-attributes
             self.online_wikis = self._get_online_wikis()
         self.wiki_name = wiki_name
         # self.url = url + '/' + self.wiki_name
-        self.date = date
-        self.date_loc = None
-        self.date_err = None
-        self.online_dates = None
         self.verbose = verbose
         if self.verbose:
-            self.print_status(False)
+            self.print_summary(False)
 
     def get_local_wikis(self):
         """Return a list of wikis that have at least one file from a dump stored locally."""
-        return list(self.corpora.keys())
+        return self._local_corpora.get_wikis()
 
     def get_local_dumps(self, wiki=None):
         """Return a list of dump dates that have at least one file from that dump stored locally."""
-        if wiki:
-            return list(self.corpora[wiki].keys())
-        dumps = []
-        for wiki_name in self.corpora:
-            dumps.append(list(self.corpora[wiki_name].keys()))
-        return dumps
+        return self._local_corpora.get_dumps(wiki)
 
     def get_unknown_files(self, wiki=None, date=None):
         """Return a list of files that don't fit the wikimedia naming convention.
@@ -280,21 +361,11 @@ class CorporaTracker:  # pylint: disable=too-many-instance-attributes
             wiki (str): The name of a wiki with files present in this CorpusFiles
             date (str): The dump date of a wiki with files present in this CorpusFiles
         """
-        files = []
-        if wiki and date:
-            return self.unknown_files[wiki][date]
-        if wiki:
-            for dump in self.unknown_files[wiki]:
-                files.append(self.unknown_files[wiki][dump])
-            return files
+        return self._unknown_files.get_files(wiki, date)
 
-        for wiki_name in self.unknown_files:
-            if wiki_name == "orphans":
-                files.append(self.unknown_files[wiki_name])
-            else:
-                for dump in self.unknown_files[wiki_name]:
-                    files.append(self.unknown_files[wiki_name][dump])
-        return files
+    def get_local_dirs(self):
+        """Return a  list of the directories scanned for files."""
+        return self._local_corpora.get_dirs()
 
     def get_local_checksum_files(self, wiki=None, date=None):
         """Return a list of known checksum files.
@@ -307,18 +378,7 @@ class CorporaTracker:  # pylint: disable=too-many-instance-attributes
             wiki (str): The name of a wiki with files present in this CorpusFiles
             date (str): The dump date of a wiki with files present in this CorpusFiles
         """
-        files = []
-        if wiki and date:
-            return self.corpora[wiki][date].get_checksum_files()
-        if wiki:
-            for dump in self.corpora[wiki]:
-                files.append(self.corpora[wiki][dump].get_checksum_files())
-            return files
-
-        for wiki_name in self.corpora:
-            for dump in self.corpora[wiki_name]:
-                files.append(self.corpora[wiki][dump])
-        return files
+        return self._local_corpora.get_checksum_files(wiki, date)
 
     def is_online(self):
         """Check if wikimedia can be reached.
@@ -353,99 +413,17 @@ class CorporaTracker:  # pylint: disable=too-many-instance-attributes
                 wikis.extend(a_href[0].contents)
         return wikis
 
-    def _check_dir_permissions(self):
-        """Confirm R/Q permission of each directory."""
-        for path in self.local_dirs:
-            if not os.path.exists(path):
-                raise FileNotFoundError
-            if not os.path.isdir(path):
-                raise NotADirectoryError
-            if not os.access(path, os.R_OK | os.W_OK):
-                raise PermissionError
-
-    def _scan_dir_for_file_sets(self, path):  # pylint: disable=too-many-branches
-        """Walk through a directory and identify all wiki related files."""
-        # get a list of just the files
-        with os.scandir(path) as entries:
-            file_list = [e.path for e in entries if e.is_file()]
-        # file_list = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
-
-        # get a list of known wikis
-        wiki_names = _known_wikis
-        if self.online and self.online_wikis:  # These won't be available yet
-            wiki_names = self.online_wikis
-
-        # sort the files into corpus lists
-        corpus_lists = {}
-        for file_path in file_list:
-            [_, file] = os.path.split(file_path)
-            (wiki, date, name) = _parse_dump_info(file, wiki_names)
-            if wiki and date and name:
-                if wiki not in corpus_lists:
-                    corpus_lists[wiki] = {}
-                    corpus_lists[wiki][date] = [file_path]
-                elif date not in corpus_lists[wiki]:
-                    corpus_lists[wiki][date] = [file_path]
-                else:
-                    corpus_lists[wiki][date].append(file_path)
-                # Create an unknown list for each new dump date
-                if wiki not in self.unknown_files:
-                    self.unknown_files[wiki] = {date: []}
-                elif date not in self.unknown_files[wiki]:
-                    self.unknown_files[wiki][date] = []
-            elif wiki and date:
-                if wiki not in self.unknown_files:
-                    self.unknown_files[wiki] = {date: [file_path]}
-                elif date not in self.unknown_files[wiki]:
-                    self.unknown_files[wiki][date] = [file_path]
-                else:
-                    self.unknown_files[wiki][date].append(file_path)
-            elif wiki:
-                if wiki not in self.unknown_files:
-                    self.unknown_files[wiki] = {"orphans": [file_path]}
-                else:
-                    self.unknown_files[wiki]["orphans"].append(file_path)
-            else:
-                self.unknown_files["orphans"].append(file_path)
-
-        # Add files to the relevant CorpusFiles objects
-        for wiki in corpus_lists:
-            for date in corpus_lists[wiki]:
-                if wiki not in self.corpora:
-                    self.corpora[wiki] = {}
-                    self.corpora[wiki][date] = CorpusFiles(wiki + '-' + date,
-                                                           corpus_lists[wiki][date],
-                                                           self.unknown_files[wiki][date])
-                elif date not in self.corpora[wiki]:
-                    self.corpora[wiki][date] = CorpusFiles(wiki + '-' + date,
-                                                           corpus_lists[wiki][date],
-                                                           self.unknown_files[wiki][date])
-                else:
-                    self.corpora[wiki][date].add_files(corpus_lists[wiki][date],
-                                                       self.unknown_files[wiki][date])
-
     def get_local_file_count(self):
         """Return the total count of files found in the provided local directories.
 
         This includes both wiki files and unknown files.
         """
-        count = 0
-        # All files tracked across corpora
-        for wiki in self.corpora:
-            for date in self.corpora[wiki]:
-                count += self.corpora[wiki][date].get_file_count()
-        for wiki in self.unknown_files:
-            if wiki == "orphans":
-                count += len(self.unknown_files[wiki])
-            else:
-                for files in self.unknown_files[wiki].values():
-                    count += len(files)
-        return count
+        return self._local_corpora.get_file_count() + self._unknown_files.get_file_count()
 
-    def print_status(self, verbose=True):
+    def print_summary(self, verbose=True):
         """List what the tracker is aware of.
 
-        Brief (verbose == False) mode, is used for the summary after initilization.
+        Brief (verbose == False) mode, is used for the summary after initialization.
 
         Args:
             verbose (bool): Print long or brief form of summary.
@@ -453,12 +431,122 @@ class CorporaTracker:  # pylint: disable=too-many-instance-attributes
         tab = '\t'
         print("Local:")
         if verbose:
-            print(tab + "Dirs: " + self.local_dirs)
+            print(tab + "Dirs: " + self.get_local_dirs())
         print(tab + "Number of files: " + str(self.get_local_file_count()))
-        print(tab + "Number of wikis with files: " + str(len(self.offline_wikis)))
-        if not verbose:
-            for wiki in self.corpora:
-                print(tab + tab + wiki + ":")
-                for dump in self.corpora[wiki]:
-                    count = self.corpora[wiki][dump].get_file_count()
-                    print(tab + tab + tab + dump + ": " + str(count) + " files")
+        print(tab + "Number of wikis with files: " + str(len(self.get_local_wikis())))
+        print(self._local_corpora.summary(verbose))
+        print(self._unknown_files.summary(verbose))
+
+
+class Corpora:
+    """Tracks all wiki dumps stored locally."""
+
+    def __init__(self, local_dirs, unknown_files):
+        """Object initialization.
+
+        Args:
+            local_dirs (list): A list of directory paths
+            unknown_files (UnknownFiles): An UnknownFiles record to send mystery files to
+        """
+        self._corpora = {}
+        self._unknown_files = unknown_files
+        # check and scan local dirs
+        self._local_dirs = local_dirs
+        for path in self._local_dirs:
+            self._scan_dir_for_file_sets(path)
+
+    def _scan_dir_for_file_sets(self, path):  # pylint: disable=too-many-branches
+        """Walk through a directory and identify all wiki related files."""
+        # get a list of just the files
+        with os.scandir(path) as entries:
+            file_list = [_get_file_info(e.path) for e in entries if e.is_file()]
+            # exit if no files to process
+            if not file_list:
+                return
+
+        # Push into a dataframe to simplify querying for all corpus names
+        file_df = pd.DataFrame(file_list, columns=_file_info_keys)
+
+        # Look at the mix of unknown files to wiki files
+        unknown_cnt = file_df[file_df.date.isna()].shape[0]
+        if unknown_cnt == file_df.shape[0]:  # all files are unknown
+            self._unknown_files.add_files(file_df.to_dict('records'))
+            return
+
+        if unknown_cnt > 0:  # mix of wiki files and unknowns split
+            file_df, unknowns_df = [x for _, x in file_df.groupby(file_df.wiki.isna() | file_df.date.isna())]
+            # File obvious unknown files into UnknownFiles
+            self._unknown_files.add_files(unknowns_df.to_dict('records'))
+
+        # Create storage for each wiki
+        for wiki in list(file_df.groupby(["wiki"]).groups):
+            if wiki not in self._corpora:
+                self._corpora[wiki] = {}
+
+        # Create a CorpusFiles for each dump
+        for (wiki, date), files in file_df.groupby(["wiki", "date"]):
+            if date not in self._corpora[wiki]:
+                self._corpora[wiki][date] = CorpusFiles(wiki + '-' + date, files.to_dict('records'),
+                                                        self._unknown_files)
+            else:
+                self._corpora[wiki][date].add_files(files.to_dict('records'), self._unknown_files)
+
+    def get_wikis(self):
+        """Return a list of wikis that have at least one file from a dump stored locally."""
+        return list(self._corpora)
+
+    def get_dumps(self, wiki):
+        """Return a list of dump dates that have at least one file from that dump stored locally."""
+        if wiki:
+            return list(self._corpora[wiki])
+
+        dumps = []
+        for wiki_name in self._corpora:
+            dumps.append(list(self._corpora[wiki_name]))
+        return dumps
+
+    def get_dirs(self):
+        """Return a list of the directories scanned for files."""
+        return self._local_dirs
+
+    def get_file_count(self, wiki=None, date=None):
+        """Return a count of files detected."""
+        count = 0
+        if wiki and date:
+            return self._corpora[wiki][date].get_file_count()
+        if wiki:
+            for date_name in self._corpora[wiki]:
+                count += self._corpora[wiki][date_name].get_file_count()
+        else:
+            for wiki_name in self._corpora:
+                for date_name in self._corpora[wiki_name]:
+                    count += self._corpora[wiki_name][date_name].get_file_count()
+        return count
+
+    def summary(self, wiki=None, date=None, verbose=True):
+        """Return a string summarizing all the local identified wiki files."""
+        status = ""
+        if wiki and date:
+            return self._corpora[wiki][date].summary(verbose)
+        if wiki:
+            for date_name in self._corpora[wiki]:
+                status += self._corpora[wiki][date_name].summary(verbose)
+        else:
+            for wiki_name in self._corpora:
+                for date_name in self._corpora[wiki_name]:
+                    status += self._corpora[wiki_name][date_name].summary(verbose)
+        return status
+
+    def get_checksum_files(self, wiki=None, date=None):
+        """Return a list of checksum files."""
+        files = []
+        if wiki and date:
+            return self._corpora[wiki][date].get_checksum_files()
+        if wiki:
+            for date_name in self._corpora[wiki]:
+                files.append(self._corpora[wiki][date_name].get_checksum_files())
+        else:
+            for wiki_name in self._corpora:
+                for date_name in self._corpora[wiki_name]:
+                    files.append(self._corpora[wiki_name][date_name].get_checksum_files())
+        return files
