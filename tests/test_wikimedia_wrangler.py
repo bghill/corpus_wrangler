@@ -82,6 +82,7 @@ def test_local_dir_scan(fs):
 
     wct = ww.CorporaTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
     assert len(wct.list_local_wikis()) == 2
+    assert len(wct.list_local_dumps()) == 3
     assert len(wct.list_local_dumps("enwiki")) == 2
     assert wct.get_local_file_count("enwiki") == 3
     assert wct.get_local_file_count("enwiki", "20201020") == 2
@@ -98,6 +99,20 @@ def test_file_counts(fs):
     wct = ww.CorporaTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
     assert wct.get_local_file_count("enwiki") == 3
     assert wct.get_local_file_count("enwiki", "20201020") == 2
+
+
+def test_checksum_counts(fs):
+    """Scan of local directories counts files correctly."""
+    fs.create_file("/data1/enwiki-20201001-md5sums.txt")
+    fs.create_file("/data1/enwiki-20201020-md5sums.txt")
+    fs.create_file("/data2/frwiki-20201020-md5sums.txt")
+    fs.create_file("/data2/enwiki-20201020-md5sums.txt")
+    fs.create_file("/data2/frwiki-20201020-foo.txt")
+
+    wct = ww.CorporaTracker(local_dirs=["/data1", "/data2"], online=False, verbose=False)
+    assert len(wct.list_local_checksum_files()) == 4
+    assert len(wct.list_local_checksum_files("enwiki")) == 3
+    assert len(wct.list_local_checksum_files("enwiki", "20201020")) == 2
 
 
 def test_wiki_file_identification(fs):

@@ -523,7 +523,7 @@ class Corpora:
 
         dumps = []
         for wiki_name in self._corpora:
-            dumps.append(list(self._corpora[wiki_name]))
+            dumps.extend(list(self._corpora[wiki_name]))
         return dumps
 
     def list_dirs(self):
@@ -565,9 +565,9 @@ class Corpora:
             return self._corpora[wiki][date].list_checksum_files()
         if wiki:
             for date_name in self._corpora[wiki]:
-                files.append(self._corpora[wiki][date_name].list_checksum_files())
+                files.extend(self._corpora[wiki][date_name].list_checksum_files())
         else:
             for wiki_name in self._corpora:
                 for date_name in self._corpora[wiki_name]:
-                    files.append(self._corpora[wiki_name][date_name].list_checksum_files())
+                    files.extend(self._corpora[wiki_name][date_name].list_checksum_files())
         return files
