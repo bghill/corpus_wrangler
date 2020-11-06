@@ -208,7 +208,7 @@ class UnknownFiles(FileSet):
             del file_dict["description"]
         self._add_rows(file_list)
 
-    def get_files(self, wiki=None, date=None):
+    def list_files(self, wiki=None, date=None):
         """Return a list of files.
 
         Can return either a list of all unknown files, or if a wiki name is given, only those
@@ -294,7 +294,7 @@ class CorpusFiles(FileSet):
         self._files = self._files.astype(CorpusFiles._id_columns_types).astype(CorpusFiles._description_columns_types)
         unknowns.add_files(unknown_list)
 
-    def get_checksum_files(self):
+    def list_checksum_files(self):
         """Return a list of all checksum files in this corpus."""
         return list(self._files[self._files.checksum].name)
 
@@ -349,15 +349,15 @@ class CorporaTracker:
         if self.verbose:
             self.print_summary(False)
 
-    def get_local_wikis(self):
+    def list_local_wikis(self):
         """Return a list of wikis that have at least one file from a dump stored locally."""
         return self._local_corpora.get_wikis()
 
-    def get_local_dumps(self, wiki=None):
+    def list_local_dumps(self, wiki=None):
         """Return a list of dump dates that have at least one file from that dump stored locally."""
         return self._local_corpora.get_dumps(wiki)
 
-    def get_unknown_files(self, wiki=None, date=None):
+    def list_unknown_files(self, wiki=None, date=None):
         """Return a list of files that don't fit the wikimedia naming convention.
 
         An unknown file is any local file that don't fit the Wikimedia naming convention.
@@ -371,13 +371,13 @@ class CorporaTracker:
             wiki (str): The name of a wiki with files present in this CorpusFiles
             date (str): The dump date of a wiki with files present in this CorpusFiles
         """
-        return self._unknown_files.get_files(wiki, date)
+        return self._unknown_files.list_files(wiki, date)
 
-    def get_local_dirs(self):
+    def list_local_dirs(self):
         """Return a  list of the directories scanned for files."""
         return self._local_corpora.get_dirs()
 
-    def get_local_checksum_files(self, wiki=None, date=None):
+    def list_local_checksum_files(self, wiki=None, date=None):
         """Return a list of known checksum files.
 
         With no arguments, this returns a list of all checksum files. With a wiki name,
@@ -442,9 +442,9 @@ class CorporaTracker:
         tab = '\t'
         print("Local:")
         if verbose:
-            print(tab + "Dirs: " + self.get_local_dirs())
+            print(tab + "Dirs: " + self.list_local_dirs())
         print(tab + "Number of files: " + str(self.get_local_file_count()))
-        print(tab + "Number of wikis with files: " + str(len(self.get_local_wikis())))
+        print(tab + "Number of wikis with files: " + str(len(self.list_local_wikis())))
         print(self._local_corpora.summary(verbose))
         print(self._unknown_files.summary(verbose))
 
@@ -552,12 +552,12 @@ class Corpora:
         """Return a list of checksum files."""
         files = []
         if wiki and date:
-            return self._corpora[wiki][date].get_checksum_files()
+            return self._corpora[wiki][date].list_checksum_files()
         if wiki:
             for date_name in self._corpora[wiki]:
-                files.append(self._corpora[wiki][date_name].get_checksum_files())
+                files.append(self._corpora[wiki][date_name].list_checksum_files())
         else:
             for wiki_name in self._corpora:
                 for date_name in self._corpora[wiki_name]:
-                    files.append(self._corpora[wiki_name][date_name].get_checksum_files())
+                    files.append(self._corpora[wiki_name][date_name].list_checksum_files())
         return files
