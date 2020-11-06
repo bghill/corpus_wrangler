@@ -60,8 +60,18 @@ def _check_dir_permissions(dirs):
             raise PermissionError
 
 
-def _parse_dump_info(name):
-    """Return the name of the wiki this file comes from as well as the dump date."""
+def _parse_dump_name(name):
+    """Return the name of the wiki this file comes from as well as the dump date.
+
+    If a file is in the standard Wikimedia format of <wiki_name>-<dump_date>-<content_description>
+    then this will return all three pieces. If any of those pieces are missing, it will return None
+    for those fields.
+
+    Args:
+        name (str): File name
+    Returns:
+        wiki name, dump date, remainder of file name
+    """
     name_parts = name.split('-', 2)
     if name_parts[0] in _known_wikis:
         if len(name_parts) > 1 and len(name_parts[1]) == 8 and name_parts[1].isnumeric():
@@ -149,7 +159,7 @@ def _get_file_info(pathname):
     size = os.path.getsize(pathname)
     [path, file_name] = os.path.split(pathname)
     [name, ext] = os.path.splitext(file_name)
-    wiki, date, description = _parse_dump_info(name)
+    wiki, date, description = _parse_dump_name(name)
     return path, name, ext, size, wiki, date, description
 
 
